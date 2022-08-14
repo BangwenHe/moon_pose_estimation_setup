@@ -122,8 +122,8 @@ def main():
     rootnet_model.eval()
 
 
-    rootnet_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=rootnet_cfg.pixel_mean, std=rootnet_cfg.pixel_std)])
-    posenet_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=posenet_cfg.pixel_mean, std=posenet_cfg.pixel_std)])
+    rootnet_transform = torch.nn.Sequential(transforms.Normalize(mean=rootnet_cfg.pixel_mean, std=rootnet_cfg.pixel_std))
+    posenet_transform = torch.nn.Sequential(transforms.Normalize(mean=posenet_cfg.pixel_mean, std=posenet_cfg.pixel_std))
 
     original_img_height, original_img_width = (480, 640)
 
@@ -182,7 +182,7 @@ def main():
             for n in range(person_num):
                 bbox = rootnet_process_bbox(np.array(bbox_list[n]), original_img_width, original_img_height)
                 img, img2bb_trans = rootnet_generate_patch_image(original_img, bbox, False, 0.0) 
-                img = rootnet_transform(img).cuda()[None,:,:,:]
+                img = rootnet_transform(torch.from_numpy(img).cuda().permute(2, 0, 1).unsqueeze(0))
                 k_value = np.array([math.sqrt(rootnet_cfg.bbox_real[0]*rootnet_cfg.bbox_real[1]*focal[0]*focal[1]/(bbox[2]*bbox[3]))]).astype(np.float32)
                 k_value = torch.FloatTensor([k_value]).cuda()[None,:]
 
@@ -206,7 +206,7 @@ def main():
         for n in range(person_num):
             bbox = process_bbox(np.array(bbox_list[n]), original_img_width, original_img_height)
             img, img2bb_trans = generate_patch_image(original_img, bbox, False, 1.0, 0.0, False) 
-            img = posenet_transform(img).cuda()[None,:,:,:]
+            img = posenet_transform(torch.from_numpy(img).cuda().permute(2, 0, 1).unsqueeze(0))
 
             # forward
             with torch.no_grad():
@@ -242,9 +242,10 @@ def main():
             img_2d = vis_keypoints(vis_img, vis_kps, skeleton)
         cv2.imwrite("pose2d.jpg", img_2d)
 
-        vis_kps = np.array(output_pose_3d)
-        vis_3d_multiple_skeleton_no_show_but_savefig(vis_kps, np.ones_like(vis_kps), skeleton, 'output_pose_3d (x,y,z: camera-centered. mm.)')
-
+        # vis_kps = np.array(output_pose_3d)
+        # vis_3d_multiple_skeleton_no_show_but_savefig(vis_kps, np.ones_like(vis_kps), skeleton, 'output_pose_3d (x,y,z: camera-centered. mm.)')
+        cv2.imshow("muco", img_2d)
+        cv2.waitKey(1)
 
     cap.release()
 
